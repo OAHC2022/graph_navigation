@@ -31,6 +31,10 @@
 #include "navigation_parameters.h"
 #include "motion_primitives.h"
 
+// added terms
+#include "bc_data_store.h"
+#include "bc_sampler.h"
+
 #ifndef NAVIGATION_H
 #define NAVIGATION_H
 
@@ -263,6 +267,10 @@ class Navigation {
       last_options_;
   // Last PathOption taken
   std::shared_ptr<motion_primitives::PathRolloutBase> best_option_;
+
+  // ###################### my stuff ######################
+  std::unique_ptr<DataStore> bc_ds_;
+  std::unique_ptr<BC2> bc2_;
 };
 
 }  // namespace navigation

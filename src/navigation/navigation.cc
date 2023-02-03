@@ -148,8 +148,12 @@ Navigation::Navigation() :
     enabled_(false),
     initialized_(false),
     sampler_(nullptr),
-    evaluator_(nullptr) {
+    evaluator_(nullptr),
+    bc_ds_(nullptr),
+    bc2_(nullptr) {
   sampler_ = std::unique_ptr<PathRolloutSamplerBase>(new AckermannSampler());
+  bc_ds_ = std::unique_ptr<DataStore>(new DataStore());
+  bc2_ = std::unique_ptr<BC2>(new BC2());
 }
 
 void Navigation::Initialize(const NavigationParameters& params,
@@ -235,6 +239,13 @@ void Navigation::PruneLatencyQueue() {
 void Navigation::UpdateOdometry(const Odom& msg) {
   latest_odom_msg_ = msg;
   t_odometry_ = msg.time;
+
+  auto pose = Vector2f(msg.position.x(),
+                       msg.position.y());
+  auto angle = 2.0f * atan2f(msg.orientation.z(),
+                              msg.orientation.w());
+  bc_ds_->store_odom(pose, angle, msg.time);
+
   PruneLatencyQueue();
   if (!odom_initialized_) {
     starting_loc_ = Vector2f(msg.position.x(), msg.position.y());
@@ -408,6 +419,7 @@ void Navigation::ObservePointCloud(const vector<Vector2f>& cloud,
                                    double time) {
   point_cloud_ = cloud;
   t_point_cloud_ = time;
+  bc_ds_->store_point_cloud(cloud, time);
   PruneLatencyQueue();
 }
 
@@ -589,6 +601,14 @@ void Navigation::RunObstacleAvoidance(Vector2f& vel_cmd, float& ang_vel_cmd) {
   if (nav_state_ == NavigationState::kOverride) {
     local_target = override_target_;
   }
+  
+  // ###################### my stuff ######################
+  bc_ds_->create_odom_lidar_pair();
+  bc_ds_->construct_input(local_target);
+  bc2_->predict(bc_ds_->input_img_vector_);
+  auto costmap = bc2_->post_processing(bc_ds_->map_design_);
+  bc_ds_->calculate_path(costmap, local_target);
+  // ###################### my stuff ######################
 
   sampler_->Update(robot_vel_, robot_omega_, local_target, fp_point_cloud_, latest_image_);
   evaluator_->Update(robot_loc_, robot_angle_, robot_vel_, robot_omega_, local_target, fp_point_cloud_, latest_image_);
