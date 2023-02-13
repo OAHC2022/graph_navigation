@@ -33,7 +33,6 @@
 
 // added terms
 #include "bc_data_store.h"
-#include "bc_sampler.h"
 
 #ifndef NAVIGATION_H
 #define NAVIGATION_H
@@ -147,6 +146,9 @@ class Navigation {
   std::vector<std::shared_ptr<motion_primitives::PathRolloutBase>> GetLastPathOptions();
   std::shared_ptr<motion_primitives::PathRolloutBase> GetOption();
 
+  // ###################### my stuff ######################
+  std::unique_ptr<DataStore> bc_ds_;
+  int counter = 0;
  private:
 
   // Test 1D TOC motion in a straight line.
@@ -268,9 +270,6 @@ class Navigation {
   // Last PathOption taken
   std::shared_ptr<motion_primitives::PathRolloutBase> best_option_;
 
-  // ###################### my stuff ######################
-  std::unique_ptr<DataStore> bc_ds_;
-  std::unique_ptr<BC2> bc2_;
 };
 
 }  // namespace navigation

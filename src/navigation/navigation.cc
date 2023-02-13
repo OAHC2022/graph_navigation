@@ -149,11 +149,9 @@ Navigation::Navigation() :
     initialized_(false),
     sampler_(nullptr),
     evaluator_(nullptr),
-    bc_ds_(nullptr),
-    bc2_(nullptr) {
+    bc_ds_(nullptr) {
   sampler_ = std::unique_ptr<PathRolloutSamplerBase>(new AckermannSampler());
   bc_ds_ = std::unique_ptr<DataStore>(new DataStore());
-  bc2_ = std::unique_ptr<BC2>(new BC2());
 }
 
 void Navigation::Initialize(const NavigationParameters& params,
@@ -595,21 +593,33 @@ void Navigation::RunObstacleAvoidance(Vector2f& vel_cmd, float& ang_vel_cmd) {
   static CumulativeFunctionTimer function_timer_(__FUNCTION__);
   CumulativeFunctionTimer::Invocation invoke(&function_timer_);
   const bool debug = FLAGS_v > 1;
+  Vector2f local_target = local_target_;
+
+  
+  // ###################### my stuff ######################
+  counter++;
+  if(counter % 20 ==0){
+    counter = 0;
+    bc_ds_->Run(local_target);
+  }
+
+  float local_tar_dist = sqrt(pow(local_target[0], 2) + pow(local_target[1], 2));
+  if(local_tar_dist > 2.2){
+    auto adjusted_goal = bc_ds_->get_bc_target();
+    if (adjusted_goal[0] > 9){
+      Halt(vel_cmd, ang_vel_cmd);
+      return;
+    }else{
+    }
+    local_target = adjusted_goal;
+  }
+  // ###################### my stuff ######################
 
   // Handling potential carrot overrides from social nav
-  Vector2f local_target = local_target_;
   if (nav_state_ == NavigationState::kOverride) {
     local_target = override_target_;
   }
   
-  // ###################### my stuff ######################
-  bc_ds_->create_odom_lidar_pair();
-  bc_ds_->construct_input(local_target);
-  bc2_->predict(bc_ds_->input_img_vector_);
-  auto costmap = bc2_->post_processing(bc_ds_->map_design_);
-  bc_ds_->calculate_path(costmap, local_target);
-  // ###################### my stuff ######################
-
   sampler_->Update(robot_vel_, robot_omega_, local_target, fp_point_cloud_, latest_image_);
   evaluator_->Update(robot_loc_, robot_angle_, robot_vel_, robot_omega_, local_target, fp_point_cloud_, latest_image_);
   auto paths = sampler_->GetSamples(params_.num_options);

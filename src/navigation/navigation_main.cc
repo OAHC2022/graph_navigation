@@ -233,7 +233,7 @@ void GoToCallback(const geometry_msgs::PoseStamped& msg) {
 
 void GoToCallbackAMRL(const amrl_msgs::Localization2DMsg& msg) {
   const Vector2f loc(msg.pose.x, msg.pose.y);
-  printf("Goal: (%f,%f) %f\u00b0\n", loc.x(), loc.y(), msg.pose.theta);
+  // printf("Goal: (%f,%f) %f\u00b0\n", loc.x(), loc.y(), msg.pose.theta);
   navigation_.SetNavGoal(loc, msg.pose.theta);
   navigation_.Resume();
 }
@@ -797,6 +797,7 @@ int main(int argc, char** argv) {
   navigation::NavigationParameters params;
   LoadConfig(&params);
   navigation_.Initialize(params, map_path);
+  navigation_.bc_ds_->init(n);
 
   // Publishers
   local_viz_msg_ = visualization::NewVisualizationMessage(
