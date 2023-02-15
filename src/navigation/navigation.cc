@@ -598,7 +598,7 @@ void Navigation::RunObstacleAvoidance(Vector2f& vel_cmd, float& ang_vel_cmd) {
   
   // ###################### my stuff ######################
   counter++;
-  if(counter % 20 ==0){
+  if(counter % 10 ==0){
     counter = 0;
     bc_ds_->Run(local_target);
   }
@@ -607,6 +607,7 @@ void Navigation::RunObstacleAvoidance(Vector2f& vel_cmd, float& ang_vel_cmd) {
   if(local_tar_dist > 2.2){
     auto adjusted_goal = bc_ds_->get_bc_target();
     if (adjusted_goal[0] > 9){
+      cout << "halt no adjusted goal" << endl;
       Halt(vel_cmd, ang_vel_cmd);
       return;
     }else{

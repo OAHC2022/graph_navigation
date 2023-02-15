@@ -1,3 +1,4 @@
 #!/bin/bash
-
-rostopic pub -1 /move_base_simple/goal_amrl amrl_msgs/Localization2DMsg "{'pose' : {'x' : 10}}"
+echo $(dirname $(realpath $0))
+cd $(dirname $(realpath $0))
+python scripts/give_waypoints.py

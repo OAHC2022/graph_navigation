@@ -185,7 +185,10 @@ class DataStore{
 
         void Run(Eigen::Vector2f goal){
             auto success = create_odom_lidar_pair();
-            if(!success) return;
+            if(!success){
+                cout << "create odom lidar pair unsuccessful" << endl;
+                return;
+            }
             construct_input(goal);
             publish_input();
         }
@@ -383,7 +386,7 @@ class DataStore{
             auto tmp_map = lidar_scans_[lidar_scans_.size() - 1];
             for (int j = 0; j < tmp_map.rows(); j++) {
                 for (int k = 0; k < tmp_map.cols(); k++) {
-                    map_design_.push_back(mat(j, k));
+                    map_design_.push_back(tmp_map(j, k));
                 }
             }
 
@@ -392,7 +395,7 @@ class DataStore{
             for (auto scan : lidar_scans_) {
                 for (int j = 0; j < scan.rows(); j++) {
                     for (int k = 0; k < scan.cols(); k++) {
-                        input_img_vector_.push_back(mat(j, k));
+                        input_img_vector_.push_back(scan(j, k));
                     }
                 }
             }
@@ -420,23 +423,28 @@ class DataStore{
             
             // create astar path map
             if(save_img_){
-                Eigen::MatrixXf astar_map = Eigen::MatrixXf::Zero(img_size_, img_size_);
+                Eigen::MatrixXf astar_map_cost = Eigen::MatrixXf::Zero(img_size_, img_size_);
+                Eigen::MatrixXf astar_map_design = Eigen::MatrixXf::Zero(img_size_, img_size_);
                 for (int i = 0; i < 256; i++) {
                     for (int j = 0; j < 256; j++) {
-                        astar_map(i,j) = map_design_[i * 256 + j];
+                        astar_map_design(i,j) = map_design_[i * 256 + j];
+                        astar_map_cost(i,j) = costmap[i][j];
                     }
                 }
 
                 for(auto p : path){
                     auto x = p.first;
                     auto y = p.second;
-                    astar_map(y,x) = 1;
+                    astar_map_cost(y,x) = 100;
+                    astar_map_design(y,x) = 1;
                 }
                 stringstream ss;
                 my_count_ ++;
                 ss << my_count_;
                 string fn = "astar" + ss.str() + ".json";
-                save(astar_map, fn);
+                string fn_design = "astar_design" + ss.str() + ".json";
+                save(astar_map_cost, fn);
+                save(astar_map_design, fn_design);
             }
             return path;
         }

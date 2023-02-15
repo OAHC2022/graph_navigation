@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import rospy 
 import lupa
 from nav_msgs.msg import Odometry
@@ -5,6 +7,7 @@ import sys
 sys.path.append('/home/zichaohu/catkin_ws/src/amrl_msgs/src')
 from amrl_msgs.msg import Localization2DMsg
 
+import time
 import numpy as np
 
 goals = [[0,0], [13,0]]
@@ -26,7 +29,7 @@ def odom_cb(odom: Odometry):
         goal.pose.y = curr_goal[1]
         pub.publish(goal)
 
-    if np.linalg.norm(curr_goal- curr_pos) < 1e-1:
+    if np.linalg.norm(curr_goal- curr_pos) < 5e-1:
         delay_count += 1
         if delay_count < delay:
             return 
@@ -42,8 +45,9 @@ def odom_cb(odom: Odometry):
         delay_count = 0
 
 if __name__ == "__main__":
-    rospy.init_node('waypoint_node', anonymous=True)
-
+    print("starting give way point node")
+    time.sleep(8)
+    print('finish sleeping')
     # Create a Lua runtime
     lua = lupa.LuaRuntime()
 
@@ -55,6 +59,7 @@ if __name__ == "__main__":
     lua.execute(lua_code)
     odom_topic = lua.globals().NavigationParameters.odom_topic
     
+    rospy.init_node('waypoint_node', anonymous=True)
     rospy.Subscriber(odom_topic, Odometry, odom_cb)
     pub = rospy.Publisher("/move_base_simple/goal_amrl", Localization2DMsg, queue_size=10)
     rospy.spin()

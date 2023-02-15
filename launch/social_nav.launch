@@ -5,5 +5,5 @@
   <node pkg="graph_navigation" type="model.py" name="bc_model" output="screen"/>
   <node pkg="graph_navigation" type="run.sh" name="graphnav" output="screen" />
   <!-- <node pkg="graph_navigation" type="navigation" name="graphnav" output="screen" launch-prefix="gdb -ex run args"/> -->
-  <!-- <node pkg="graph_navigation" type="give_goal.sh" name="give_goal"/> -->
+  <node pkg="graph_navigation" type="give_goal.sh" name="give_goal" output="screen"/>
 </launch>
