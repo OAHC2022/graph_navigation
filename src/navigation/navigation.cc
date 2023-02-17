@@ -597,33 +597,35 @@ void Navigation::RunObstacleAvoidance(Vector2f& vel_cmd, float& ang_vel_cmd) {
 
   
   // ###################### my stuff ######################
-  if(counter % 5 ==0){
+  if(counter % 10 ==0){
     counter = 0;
-    bc_ds_->Run(local_target);
+    cout << "start running" << endl;
+    bc_ds_->Run(local_target); 
   }
   counter++;
 
-  // float local_tar_dist = sqrt(pow(local_target[0], 2) + pow(local_target[1], 2));
-  // if(local_tar_dist > 2.2){
-  //   // get the path
-  //   auto adjusted_goal = bc_ds_->get_bc_target();
-  //   if (adjusted_goal[0] > 9){
-  //     cout << "halt no adjusted goal" << endl;
-  //     Halt(vel_cmd, ang_vel_cmd);
-  //     return;
-  //   }else{
-  //   }
-  //   local_target = adjusted_goal;
-  // }
   float local_tar_dist = sqrt(pow(local_target[0], 2) + pow(local_target[1], 2));
   if(local_tar_dist > 2.2){
-    bc_ds_->get_vel(vel_cmd, ang_vel_cmd);
-    // vel_cmd = {1,0};
-    cout << "given: " << vel_cmd << " " << ang_vel_cmd << endl;
-    return;
+    // get the path
+    auto adjusted_goal = bc_ds_->get_bc_target();
+    if (adjusted_goal[0] > 9){
+      cout << "halt no adjusted goal" << endl;
+      Halt(vel_cmd, ang_vel_cmd);
+      return;
+    }else{
+    }
+    local_target = adjusted_goal;
   }
+  // float local_tar_dist = sqrt(pow(local_target[0], 2) + pow(local_target[1], 2));
+  // if(local_tar_dist > 2.2){
+  //   bc_ds_->get_vel(vel_cmd, ang_vel_cmd);
+  //   // vel_cmd = {1,0};
+  //   cout << "given: " << vel_cmd << " " << ang_vel_cmd << endl;
+  //   return;
+  // }
+  
   // ###################### my stuff ######################
-  cout << "not my model" << endl;
+  
   // Handling potential carrot overrides from social nav
   if (nav_state_ == NavigationState::kOverride) {
     local_target = override_target_;
@@ -699,7 +701,7 @@ void Navigation::TurnInPlace(Vector2f& cmd_vel, float& cmd_angle_vel) {
   const float velocity = robot_vel_.x();
   cmd_angle_vel = 0;
   if (fabs(velocity) > kMaxLinearSpeed) {
-    cout << "turn halt " << kMaxLinearSpeed << " " << fabs(velocity) << " " << velocity <<  endl;
+    // cout << "turn halt " << kMaxLinearSpeed << " " << fabs(velocity) << " " << velocity <<  endl;
     Halt(cmd_vel, cmd_angle_vel);
     return;
   }
@@ -905,7 +907,7 @@ bool Navigation::Run(const double& time,
       Vector2f carrot(0, 0);
       bool foundCarrot = GetCarrot(carrot);
       if (!foundCarrot) {
-        cout << "carrot halt " << endl;
+        // cout << "carrot halt " << endl;
         Halt(cmd_vel, cmd_angle_vel);
         return false;
       }
@@ -954,7 +956,7 @@ bool Navigation::Run(const double& time,
 
   if (nav_state_ == NavigationState::kPaused ||
       nav_state_ == NavigationState::kStopped) {
-        cout << "stop halt" << endl;
+        // cout << "stop halt" << endl;
     Halt(cmd_vel, cmd_angle_vel);
     return true;
   } else if (nav_state_ == NavigationState::kGoto ||
