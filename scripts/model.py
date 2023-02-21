@@ -94,6 +94,8 @@ def callback(data: Float32MultiArray):
     input_img = input_img.view(1,7,256,256)
     map_design = input_img[:, 4:5]
     cost_map, additional_info = model(input_img, map_design)
+    # print(cost_map.shape, map_design.shape, map_design)
+    cost_map = cost_map + map_design * 1000
 
     cost_map = cost_map.flatten().detach().cpu().numpy()
     goal_map = input_img.detach().cpu().numpy()[0,-1]
@@ -111,7 +113,7 @@ def callback(data: Float32MultiArray):
     # print('time: {}'.format(end - start))
     pub.publish(cost_map_msg)
     end_time = time.time()
-    print(count, " ", end_time - start_time)
+    # print(count, " ", end_time - start_time)
     # with open ('/home/zichaohu/catkin_ws/src/tmp_{}.pkl'.format(count), 'wb') as f:
     #     additional_info = additional_info.detach().cpu().numpy()
     #     pickle.dump(additional_info, f)
@@ -139,7 +141,7 @@ def preheat_model():
 
 count = 0
 if __name__ == '__main__':
-    exp_num = 18
+    exp_num = int(sys.argv[1])
     print("Start Model Node for exp: {}".format(exp_num))
     check_point = get_checkpoint_name(exp_num,199)
     model = load_model(exp_num,check_point)

@@ -10,11 +10,11 @@ from amrl_msgs.msg import Localization2DMsg
 import time
 import numpy as np
 
-goals = [[0,0], [18,0]]
+goals = [[0,0,0], [10,0, np.pi]]
 curr_idx = 0
 
-delay = 100
-delay_count = 100 
+delay = 400
+delay_count = 400 
 
 def odom_cb(odom: Odometry):
     global curr_idx, goals, delay_count
@@ -27,9 +27,10 @@ def odom_cb(odom: Odometry):
         goal = Localization2DMsg()
         goal.pose.x = curr_goal[0]
         goal.pose.y = curr_goal[1]
+        goal.pose.theta = curr_goal[2]
         pub.publish(goal)
 
-    if np.linalg.norm(curr_goal- curr_pos) < 5e-1:
+    if np.linalg.norm(curr_goal[:2] - curr_pos) < 5e-1:
         delay_count += 1
         if delay_count < delay:
             return 
@@ -38,9 +39,11 @@ def odom_cb(odom: Odometry):
         goal = Localization2DMsg()
         goal.pose.x = next_goal[0]
         goal.pose.y = next_goal[1]
+        goal.pose.theta = curr_goal[2]
         pub.publish(goal)
+        profiler_pub.publish(goal)
         delay_count = 0
-        print('goal reached!! next goal: ', goal)
+        # print('goal reached!! next goal: ', goal)
     else:
         delay_count = 0
 
@@ -62,4 +65,5 @@ if __name__ == "__main__":
     rospy.init_node('waypoint_node', anonymous=True)
     rospy.Subscriber(odom_topic, Odometry, odom_cb)
     pub = rospy.Publisher("/move_base_simple/goal_amrl", Localization2DMsg, queue_size=10)
+    profiler_pub = rospy.Publisher("/profiler/goal", Localization2DMsg, queue_size=10)
     rospy.spin()

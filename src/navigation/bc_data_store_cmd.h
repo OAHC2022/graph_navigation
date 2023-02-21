@@ -159,6 +159,7 @@ class DataStore{
             pub_ = nh.advertise<std_msgs::Float32MultiArray>("/bc_data_store/input_img", 1);
             path_pub_ = nh.advertise<nav_msgs::Path>("/predicted_path", 1);
             adjusted_local_goal_pub_ = nh.advertise<visualization_msgs::Marker>("adjusted_local_goal", 1);
+            profiler_stop_pub_ = nh.advertise<std_msgs::Float32MultiArray>("/profiler/stop", 1);
             for(int i =0; i < 63; i++){
                 cmd_executed_.push_back(0);
                 cmd_to_execute_.push_back(0);
@@ -181,6 +182,8 @@ class DataStore{
 
         bool save_img_ = false;
         int my_count_ = 0;
+        double initial_time_;
+        bool use_profiler_ = true;
 
         vector<pair<float, float>> path_;
         Eigen::Vector3f robot_pos_;
@@ -237,49 +240,6 @@ class DataStore{
             for(auto d : msg.data){
                 cmd_to_execute_.push_back(d);
             }
-
-            // std::vector<std::vector<float>> cost_map(256, std::vector<float>(256));
-            // for (int i = 0; i < 256; i++) {
-            //     for (int j = 0; j < 256; j++) {
-            //         cost_map[i][j] = msg.data[i * 256 + j];
-            //     }
-            // }
-            // float odom_theta = msg.data[msg.data.size()-1];
-            // float odom_y = msg.data[msg.data.size()-2];
-            // float odom_x = msg.data[msg.data.size()-3];
-            // int iy = msg.data[msg.data.size()-4];
-            // int ix = msg.data[msg.data.size()-5];
-
-            // auto path = calculate_path(cost_map, ix, iy);
-            // if(path.size() < 10){
-            //     return;
-            // }
-            // path_.clear();
-
-            // // convert to map frame
-            // auto mat = build_transform_matrix({0,0,0}, {odom_x, odom_y, odom_theta});
-
-            // nav_msgs::Path path_msg;
-            // path_msg.header.frame_id = "odom";
-            // path_msg.header.stamp = ros::Time::now();
-            // for(auto p : path){
-            //     float x = ((float)(p.first - dx_)) * resolution_;
-            //     float y = ((float)(dy_ - p.second)) * resolution_;
-
-            //     Eigen::Vector3f observed_state(x, y, 1);
-            //     Eigen::Vector3f rotated_state = mat * observed_state;
-            //     float x_r = rotated_state[0];
-            //     float y_r = rotated_state[1];
-            //     path_.push_back({x_r,y_r});
-
-            //     geometry_msgs::PoseStamped pose;
-            //     pose.header.frame_id = "odom";
-            //     pose.header.stamp = ros::Time::now();
-            //     pose.pose.position.x = x_r;
-            //     pose.pose.position.y = y_r;
-            //     path_msg.poses.push_back(pose);
-            // }
-            // path_pub_.publish(path_msg);
         }
         
         void store_point_cloud(vector<Vector2f> point_cloud, double time){
@@ -292,6 +252,16 @@ class DataStore{
         }
     
         void store_odom(Vector2f odom, float angle, double time){
+            if(past_odoms_.size() == 0){
+                initial_time_ = time;
+            }
+            if(time - initial_time_ > 200){
+                // let program run 200s
+                std_msgs::Float32MultiArray msg;
+                msg.data = {1};
+                profiler_stop_pub_.publish(msg);
+                exit(0);
+            }
             Vector3f loc;
             loc << odom[0], odom[1], angle;
             past_odoms_.push_back({loc, time});
@@ -620,6 +590,7 @@ class DataStore{
         ros::Publisher pub_;
         ros::Publisher path_pub_;
         ros::Publisher adjusted_local_goal_pub_;
+        ros::Publisher profiler_stop_pub_;
 
         pair<float,float> convert_from_goal_idx_to_coord(pair<int,int> pt){
             float x = ((float)(pt.first - dx_)) * resolution_;

@@ -159,6 +159,7 @@ class DataStore{
             pub_ = nh.advertise<std_msgs::Float32MultiArray>("/bc_data_store/input_img", 1);
             path_pub_ = nh.advertise<nav_msgs::Path>("/predicted_path", 1);
             adjusted_local_goal_pub_ = nh.advertise<visualization_msgs::Marker>("adjusted_local_goal", 1);
+            profiler_stop_pub_ = nh.advertise<std_msgs::Float32MultiArray>("/profiler/stop", 1);
         }
         
         vector<TimedPCL> past_point_clouds_;
@@ -177,6 +178,8 @@ class DataStore{
 
         bool save_img_ = false;
         int my_count_ = 0;
+        double initial_time_;
+        bool use_profiler_ = true;
 
         vector<pair<float, float>> path_;
         Eigen::Vector3f robot_pos_;
@@ -216,7 +219,8 @@ class DataStore{
             if(path.size() < 10){
                 return;
             }
-            path_.clear();
+
+            vector<pair<float, float>> tmp_path;
 
             // convert to map frame
             auto mat = build_transform_matrix({0,0,0}, {odom_x, odom_y, odom_theta});
@@ -232,7 +236,7 @@ class DataStore{
                 Eigen::Vector3f rotated_state = mat * observed_state;
                 float x_r = rotated_state[0];
                 float y_r = rotated_state[1];
-                path_.push_back({x_r,y_r});
+                tmp_path.push_back({x_r,y_r});
 
                 geometry_msgs::PoseStamped pose;
                 pose.header.frame_id = "odom";
@@ -241,6 +245,16 @@ class DataStore{
                 pose.pose.position.y = y_r;
                 path_msg.poses.push_back(pose);
             }
+
+            auto curr_goal = get_bc_target_dir(path_);
+            auto next_goal = get_bc_target_dir(tmp_path);
+            if(abs(curr_goal - next_goal) > M_PI/6){
+                cout << "goal dir: " << curr_goal << " " << next_goal << endl;
+                return;
+            } 
+            path_.clear();
+            path_ = tmp_path;
+
             path_pub_.publish(path_msg);
         }
         
@@ -254,6 +268,16 @@ class DataStore{
         }
     
         void store_odom(Vector2f odom, float angle, double time){
+            // if(past_odoms_.size() == 0){
+            //     initial_time_ = time;
+            // }
+            // if(time - initial_time_ > 200){
+            //     // let program run 200s
+            //     std_msgs::Float32MultiArray msg;
+            //     msg.data = {1};
+            //     profiler_stop_pub_.publish(msg);
+            //     exit(0);
+            // }
             Vector3f loc;
             loc << odom[0], odom[1], angle;
             past_odoms_.push_back({loc, time});
@@ -316,19 +340,19 @@ class DataStore{
             lidar_scans_.clear();
 
             // add image in timestamp seq
-            Eigen::MatrixXf kernel = Eigen::MatrixXf::Ones(5,5);
+            Eigen::MatrixXf kernel = Eigen::MatrixXf::Ones(11,11);
             for(int i = selected_odom.size() - 1; i >= 0; i--){
                 rotate_mat = build_transform_matrix(selected_odom[0].data, selected_odom[i].data);
                 auto tmp_img = get_bev_lidar_img_rotate(selected_pcl[i].data, rotate_mat);
                 
                 // apply kernel:
-                Eigen::MatrixXf padded_mat = Eigen::MatrixXf::Zero(260, 260);
-                padded_mat.block(2, 2, 256, 256) = tmp_img;
+                Eigen::MatrixXf padded_mat = Eigen::MatrixXf::Zero(256+10, 256+10);
+                padded_mat.block(5, 5, 256, 256) = tmp_img;
 
                 Eigen::MatrixXf result = Eigen::MatrixXf::Zero(256, 256);
-                for (int ik = 2; ik < padded_mat.rows() - 2; ++ik) {
-                    for (int j = 2; j < padded_mat.cols() - 2; ++j) {
-                        result(ik - 2, j - 2) = (padded_mat.block(ik - 2, j - 2, 5, 5) * kernel.transpose()).sum() > 0 ? 1 : 0;
+                for (int ik = 5; ik < padded_mat.rows() - 5; ++ik) {
+                    for (int j = 5; j < padded_mat.cols() - 5; ++j) {
+                        result(ik - 5, j - 5) = (padded_mat.block(ik - 5, j - 5, 11, 11) * kernel.transpose()).sum() > 0 ? 1 : 0;
                     }
                 }
                 
@@ -449,14 +473,81 @@ class DataStore{
             return path;
         }
 
-        Eigen::Vector2f get_bc_target(){
-            Eigen::Vector2f adjusted_goal(10,10);
-            int lookahead_num = 25;
-            if(path_.size() < lookahead_num + 1){
-                return adjusted_goal;
-            }
+        float get_bc_target_dir(vector<pair<float,float>> path){
+            float dir = 0;
 
             auto curr_odom = past_odoms_.back().data;
+            // convert odom to map
+            auto mat_map = build_transform_matrix({0,0,0}, curr_odom);
+            Eigen::Vector3f observed_state_map(0, 0, 1);
+            Eigen::Vector3f rotated_state_map = mat_map * observed_state_map;
+            auto loc_x = rotated_state_map[0];
+            auto loc_y = rotated_state_map[1];
+
+            double min_dist = 100;
+            int curr_idx = 0;
+            int cnt = 0;
+            for(auto p : path){
+                auto dist = pow(p.first - loc_x,2) + pow(p.second - loc_y,2);
+                if(min_dist > dist){
+                    min_dist = dist;
+                    curr_idx = cnt;
+                }
+                cnt += 1;
+            }
+
+            int lookahead_num = curr_idx + 25;
+            if(path.size() < lookahead_num + 1){
+                lookahead_num = 25;
+                if(path.size() < lookahead_num + 1){
+                    return dir;
+                }
+            }
+
+            auto mat = build_transform_matrix(curr_odom, {0,0,0});
+
+            float x = path[lookahead_num].first;
+            float y = path[lookahead_num].second;
+            Eigen::Vector3f observed_state(x, y, 1);
+            Eigen::Vector3f rotated_state = mat * observed_state;
+
+            float x_r = rotated_state[0];
+            float y_r = rotated_state[1];
+
+            return atan2(y_r, x_r);
+        }
+
+        Eigen::Vector2f get_bc_target(){
+            Eigen::Vector2f adjusted_goal(10,10);
+
+            auto curr_odom = past_odoms_.back().data;
+            // convert odom to map
+            auto mat_map = build_transform_matrix({0,0,0}, curr_odom);
+            Eigen::Vector3f observed_state_map(0, 0, 1);
+            Eigen::Vector3f rotated_state_map = mat_map * observed_state_map;
+            auto loc_x = rotated_state_map[0];
+            auto loc_y = rotated_state_map[1];
+
+            double min_dist = 100;
+            int curr_idx = 0;
+            int cnt = 0;
+            for(auto p : path_){
+                auto dist = pow(p.first - loc_x,2) + pow(p.second - loc_y,2);
+                if(min_dist > dist){
+                    min_dist = dist;
+                    curr_idx = cnt;
+                }
+                cnt += 1;
+            }
+
+            int lookahead_num = curr_idx + 25;
+            if(path_.size() < lookahead_num + 1){
+                lookahead_num = 25;
+                if(path_.size() < lookahead_num + 1){
+                    return adjusted_goal;
+                }
+            }
+
             auto mat = build_transform_matrix(curr_odom, {0,0,0});
 
             float x = path_[lookahead_num].first;
@@ -575,11 +666,14 @@ class DataStore{
 
             return img;
         }
+        void update_vel(){
+        }
     private:
         ros::Subscriber sub_;
         ros::Publisher pub_;
         ros::Publisher path_pub_;
         ros::Publisher adjusted_local_goal_pub_;
+        ros::Publisher profiler_stop_pub_;
 
         pair<float,float> convert_from_goal_idx_to_coord(pair<int,int> pt){
             float x = ((float)(pt.first - dx_)) * resolution_;
