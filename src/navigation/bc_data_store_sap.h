@@ -317,7 +317,6 @@ class DataStore{
             input_img_vector_.push_back(robot_pos_[1]);
             input_img_vector_.push_back(robot_pos_[2]);
             input_img_vector_.push_back(static_cast<float>(past_odoms_.back().time - initial_time_));
-            cout << fixed << "robot pose: " << input_img_vector_.back() << endl;
         }
 
         void publish_input(){
@@ -336,7 +335,6 @@ class DataStore{
             float odom_y = msg.data[msg.data.size()-3];
             float odom_x = msg.data[msg.data.size()-4];
 
-            cout << fixed << "post: " << odom_time << endl;
             post_time_ = odom_time;
             // convert to map frame
             auto mat = build_transform_matrix({0,0,0}, {odom_x, odom_y, odom_theta});
@@ -406,7 +404,7 @@ class DataStore{
 
             int idx = -1;
             for(int i =1; i < 10;i++){
-                if(abs(dt - i * 0.1) < 0.05){
+                if(abs(dt - i * 0.1) < 0.1){
                     // get the idx
                     idx = i - 1;
                     cout << "idx: " << i - 1 << endl;
@@ -428,7 +426,7 @@ class DataStore{
 
             float x_r = rotated_state[0];
             float y_r = rotated_state[1];
-            cout << "pose: " << x_r << " " << y_r << " " << curr_odom.data << endl;
+            // cout << "pose: " << x_r << " " << y_r << " " << curr_odom.data << endl;
 
             visualization_msgs::Marker marker;
             marker.header.frame_id = "/base_footprint";

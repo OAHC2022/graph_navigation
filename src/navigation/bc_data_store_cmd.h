@@ -162,7 +162,12 @@ class DataStore{
             profiler_stop_pub_ = nh.advertise<std_msgs::Float32MultiArray>("/profiler/stop", 1);
             for(int i =0; i < 63; i++){
                 cmd_executed_.push_back(0);
-                cmd_to_execute_.push_back(0);
+                if(i % 3 ==0){
+                    cmd_to_execute_.push_back(1);   
+                }
+                else{
+                    cmd_to_execute_.push_back(0);   
+                }
             }
         }
         
@@ -215,6 +220,7 @@ class DataStore{
                 cout << "about to crash" << endl;
             }
             float x = cmd_to_execute_[0] > 1.6? 1.6 : cmd_to_execute_[0];
+            x = x < 0 ? 0 : x;
             float y = cmd_to_execute_[1];
             float theta = cmd_to_execute_[2];
             vel_cmd = {x, 0};
@@ -252,16 +258,16 @@ class DataStore{
         }
     
         void store_odom(Vector2f odom, float angle, double time){
-            if(past_odoms_.size() == 0){
-                initial_time_ = time;
-            }
-            if(time - initial_time_ > 200){
-                // let program run 200s
-                std_msgs::Float32MultiArray msg;
-                msg.data = {1};
-                profiler_stop_pub_.publish(msg);
-                exit(0);
-            }
+            // if(past_odoms_.size() == 0){
+            //     initial_time_ = time;
+            // }
+            // if(time - initial_time_ > 200){
+            //     // let program run 200s
+            //     std_msgs::Float32MultiArray msg;
+            //     msg.data = {1};
+            //     profiler_stop_pub_.publish(msg);
+            //     exit(0);
+            // }
             Vector3f loc;
             loc << odom[0], odom[1], angle;
             past_odoms_.push_back({loc, time});

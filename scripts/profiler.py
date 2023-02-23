@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import rospy
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseArray
 from nav_msgs.msg import Odometry
 from message_filters import ApproximateTimeSynchronizer, Subscriber
 from std_msgs.msg import Float32MultiArray
@@ -12,27 +12,33 @@ import lupa
 import numpy as np
 import json
 
-collided = False
+curr_goal_collided = False
+
 goal_count = 0
 colision_count = 0
 
-def check_collision(human: PoseStamped, odom: Odometry):
-    global collided, colision_count
-    human_pose = np.array([human.pose.position.x, human.pose.position.y])
+def check_collision(human: PoseArray, odom: Odometry):
+    global curr_goal_collided, colision_count
     robot_pose = np.array([odom.pose.pose.position.x, odom.pose.pose.position.y])
-    dist = np.linalg.norm(human_pose - robot_pose)
-    if dist < 0.5 and not collided:
+    dist = 100
+    for pose in human.poses:
+        human_pose = np.array([pose.position.x, pose.position.y])
+        tmp_dist = np.linalg.norm(human_pose - robot_pose)
+        if tmp_dist < dist:
+            dist = tmp_dist
+    if dist < 0.5 and not curr_goal_collided:
         colision_count += 1
         print("too close: " , colision_count)
-        collided = True 
-    elif dist >= 0.5:
-        collided = False
-
+        curr_goal_collided = True
 
 def goal_cb(goal):
-    global goal_count
+    global goal_count, curr_goal_collided, colision_count
     goal_count +=1 
+    curr_goal_collided = False
     print("count", goal_count, goal)
+    with open("log.log", "w") as f:
+        result = [goal_count, colision_count]
+        json.dump(result, f)
 
 def stop_cb(data):
     global goal_count, colision_count
@@ -56,7 +62,7 @@ if __name__ == '__main__':
     odom_topic = lua.globals().NavigationParameters.odom_topic
 
     rospy.init_node('profiler_node', anonymous=True)
-    human_sub = Subscriber("/profiler/humans", PoseStamped)
+    human_sub = Subscriber("/profiler/humans", PoseArray)
     odom_sub = Subscriber(odom_topic, Odometry)
     rospy.Subscriber("/profiler/stop", Float32MultiArray, stop_cb)
 

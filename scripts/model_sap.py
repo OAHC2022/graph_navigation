@@ -37,7 +37,13 @@ class BC3_Ported(nn.Module):
             z1 = torch.cat([z, traj_goal], dim=1)
 
             traj = self.head(z1)
-            return traj 
+            return traj
+        elif self.exp_num in [3]:
+            _, z = self.unet_encoder(lidar_scans)
+            traj_goal = self.traj_embed(goal)
+            z1 = torch.cat([z, traj_goal], dim=1)
+            traj = self.head(z1)
+            return traj
 
 
 
@@ -74,12 +80,7 @@ def callback(data: Float32MultiArray):
     odom_x = data[-4]
     angle = data[-5] 
     past_traj = - data[-45:-5]
-    print("past_traj!!!: ", past_traj, angle)
-    past_traj = np.zeros_like(past_traj)
     input_img = data[:-45]
-    # if count % 20 == 0:
-    #     with open('/home/zichaohu/catkin_ws/src/input_vec_{}.json'.format(count), 'w') as f:
-    #         json.dump(input_img.tolist(), f)
 
     angle = torch.tensor(angle, dtype=torch.float).to(DEVICE)
     angle = angle.view(-1,1)
@@ -89,17 +90,27 @@ def callback(data: Float32MultiArray):
 
     input_img = torch.tensor(input_img).to(DEVICE)
     input_img = input_img.view(1,5,256,256)
-    traj = model(input_img, past_traj, angle)
+    predicted_traj = model(input_img, angle, past_traj)
 
-    traj = traj.flatten().detach().cpu().numpy()
+    predicted_traj = predicted_traj.flatten().detach().cpu().numpy()
+    # px = 0
+    # py = 0
+    # predicted_traj = []
+    # for i in range(0, len(traj), 2):
+    #     px += traj[i]
+    #     py += traj[i+1]
+    #     predicted_traj.append(px)
+    #     predicted_traj.append(py)
+    # predicted_traj = np.array(predicted_traj)
 
-    traj = np.append(traj, odom_x)
-    traj = np.append(traj, odom_y)
-    traj = np.append(traj, odom_theta)
-    traj = np.append(traj, odom_time)
+
+    predicted_traj = np.append(predicted_traj, odom_x)
+    predicted_traj = np.append(predicted_traj, odom_y)
+    predicted_traj = np.append(predicted_traj, odom_theta)
+    predicted_traj = np.append(predicted_traj, odom_time)
     
     traj_msg = Float32MultiArray()
-    traj_msg.data = traj
+    traj_msg.data = predicted_traj
 
     # print('time: {}'.format(end - start))
     pub.publish(traj_msg)
@@ -116,7 +127,7 @@ def preheat_model():
     input_img = torch.randn(1,5,256,256).to(DEVICE)
     past_traj = torch.randn(1,40).to(DEVICE)
     angle = torch.randn(1,1).to(DEVICE)
-    result = model(input_img, past_traj, angle)
+    result = model(input_img, angle, past_traj)
     end = time.time()
     print("preheat first: ", end -start)
 
@@ -124,7 +135,7 @@ def preheat_model():
     input_img = torch.randn(1,5,256,256).to(DEVICE)
     past_traj = torch.randn(1,40).to(DEVICE)
     angle = torch.randn(1,1).to(DEVICE)
-    result = model(input_img, past_traj, angle)
+    result = model(input_img, angle, past_traj)
     end = time.time()
     print("preheat second: ", end -start)
     if end - start < 0.05:
@@ -137,7 +148,7 @@ if __name__ == '__main__':
     exp_num = 1
     print("Start Model Node for exp: {}".format(exp_num))
     check_point = get_checkpoint_name(exp_num,80)
-    check_point = "pred-epoch=23-val_loss=0.03631.ckpt"
+    # check_point = "pred-epoch=73-val_loss=0.03488.ckpt"
     model = load_model(exp_num,check_point)
     preheat_model()
     rospy.init_node('model_node', anonymous=True)

@@ -39,7 +39,7 @@ def odom_cb(odom: Odometry):
         goal = Localization2DMsg()
         goal.pose.x = next_goal[0]
         goal.pose.y = next_goal[1]
-        goal.pose.theta = curr_goal[2]
+        goal.pose.theta = next_goal[2]
         pub.publish(goal)
         profiler_pub.publish(goal)
         delay_count = 0

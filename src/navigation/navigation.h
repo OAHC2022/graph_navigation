@@ -32,7 +32,7 @@
 #include "motion_primitives.h"
 
 // added terms
-#include "bc_data_store.h"
+#include "bc_data_store_cmd.h"
 
 #ifndef NAVIGATION_H
 #define NAVIGATION_H

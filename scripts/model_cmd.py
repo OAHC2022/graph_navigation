@@ -73,6 +73,7 @@ def load_model(exp_num, checkpoint):
     model = BC2_Ported(exp_num=COUNT)
     
     dict = torch.load(MODEL_DIR + checkpoint, map_location=DEVICE)['state_dict']
+    
     new_dict = {}
     for k,v in dict.items():
         if "vanilla_astar" in k or "diff_astar" in k:
@@ -100,6 +101,8 @@ def callback(data: Float32MultiArray):
     input_img = torch.tensor(input_img).to(DEVICE)
     input_img = input_img.view(1,7,256,256)
 
+    goal = input_img[0,-1]
+
     actions = torch.tensor(actions).to(DEVICE)
     actions = actions.view(1,21,3)
     
@@ -113,7 +116,7 @@ def callback(data: Float32MultiArray):
     # print('time: {}'.format(end - start))
     pub.publish(cost_map_msg)
     end_time = time.time()
-    print(count, " ", end_time - start_time)
+    # print(count, " ", end_time - start_time)
     # with open ('/home/zichaohu/catkin_ws/src/tmp_{}.pkl'.format(count), 'wb') as f:
     #     additional_info = additional_info.detach().cpu().numpy()
     #     pickle.dump(additional_info, f)
@@ -141,9 +144,9 @@ def preheat_model():
 
 count = 0
 if __name__ == '__main__':
-    exp_num = 15
+    exp_num = int(sys.argv[1])
     print("Start Model Node for exp: {}".format(exp_num))
-    check_point = get_checkpoint_name(exp_num,199)
+    check_point = get_checkpoint_name(exp_num,100)
     model = load_model(exp_num,check_point)
     preheat_model()
     rospy.init_node('model_node', anonymous=True)
