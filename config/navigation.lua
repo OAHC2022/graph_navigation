@@ -14,13 +14,13 @@ NavigationParameters = {
     y = 0;
   };
   dt = 0.1;
-  max_linear_accel = 0.5;
-  max_linear_decel = 0.5;
-  max_linear_speed = 1.2;
+  max_linear_accel = 0.2;
+  max_linear_decel = 0.2;
+  max_linear_speed = 0.8;
   max_angular_accel = 0.5;
   max_angular_decel = 0.5;
   max_angular_speed = 1.0;
-  carrot_dist = 4.5;  -- modify from 10, 8
+  carrot_dist = 7;  -- modify from 10, 8
   system_latency = 0.24;
   obstacle_margin = 0.5;
   num_options = 41;

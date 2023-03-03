@@ -599,7 +599,14 @@ void Navigation::RunObstacleAvoidance(Vector2f& vel_cmd, float& ang_vel_cmd) {
   // ###################### my stuff ######################
   if(counter % 10 == 0){
     counter = 0;
-    bc_ds_->Run(local_target); 
+    bool not_ok_status= bc_ds_->Run(local_target); 
+    if(not_ok_status){
+      cout << "my stop" << endl;
+      vel_cmd = {0,0};
+      ang_vel_cmd = 0;
+      bc_ds_->update_vel();
+      return;
+    }
   }
   counter++;
 

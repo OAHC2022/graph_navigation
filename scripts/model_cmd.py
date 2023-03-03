@@ -34,7 +34,7 @@ class BC2_Ported(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, input_img, past_action):
-        if self.exp_num in [17,18]:
+        if self.exp_num in [17,18,25]:
             goal_map = input_img[:, -1]
             past_lidar_scans = input_img[:, :5]
 
@@ -101,7 +101,7 @@ def callback(data: Float32MultiArray):
     input_img = torch.tensor(input_img).to(DEVICE)
     input_img = input_img.view(1,7,256,256)
 
-    goal = input_img[0,-1]
+    # goal = input_img[0,-1]
 
     actions = torch.tensor(actions).to(DEVICE)
     actions = actions.view(1,21,3)
@@ -146,7 +146,7 @@ count = 0
 if __name__ == '__main__':
     exp_num = int(sys.argv[1])
     print("Start Model Node for exp: {}".format(exp_num))
-    check_point = get_checkpoint_name(exp_num,100)
+    check_point = get_checkpoint_name(exp_num,95)
     model = load_model(exp_num,check_point)
     preheat_model()
     rospy.init_node('model_node', anonymous=True)

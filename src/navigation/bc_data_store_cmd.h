@@ -199,14 +199,30 @@ class DataStore{
         int cmd_counter = 0;
 
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
-        void Run(Eigen::Vector2f goal){
+        bool Run(Eigen::Vector2f goal){
             auto success = create_odom_lidar_pair();
             if(!success){
                 cout << "create odom lidar pair unsuccessful" << endl;
-                return;
+                return false;
             }
             construct_input(goal);
             publish_input();
+            return collision_checking();
+        }
+
+        bool collision_checking(){
+            // get collisionb checking wrt angle
+            auto curr_observation = lidar_scans_.back();
+            
+            for(int x = 128; x < 138; x ++){
+                for(int y = 118; y < 138; y++){
+                    if(curr_observation(y,x) != 0){
+                        cout << curr_observation(y,x) << " " << x << " " << y << endl;
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         void publish_input(){

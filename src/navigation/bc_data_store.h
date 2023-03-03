@@ -496,9 +496,9 @@ class DataStore{
                 cnt += 1;
             }
 
-            int lookahead_num = curr_idx + 25;
+            int lookahead_num = curr_idx + 40;
             if(path.size() < lookahead_num + 1){
-                lookahead_num = 25;
+                lookahead_num = 40;
                 if(path.size() < lookahead_num + 1){
                     return dir;
                 }
@@ -540,9 +540,9 @@ class DataStore{
                 cnt += 1;
             }
 
-            int lookahead_num = curr_idx + 25;
+            int lookahead_num = curr_idx + 40;
             if(path_.size() < lookahead_num + 1){
-                lookahead_num = 25;
+                lookahead_num = 40;
                 if(path_.size() < lookahead_num + 1){
                     return adjusted_goal;
                 }

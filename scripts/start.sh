@@ -1,21 +1,31 @@
 #!/bin.bash 
 
-for i in {0..15}
+for i in {16..50}
 do
+    # python scripts/start_launch.py 24
+    # sleep 10
+    # pkill -9 python
+    # mv /home/zichaohu/catkin_ws/src/SocialNavigation/third_party/graph_navigation/log.log "/home/zichaohu/catkin_ws/src/SocialNavigation/third_party/graph_navigation/result/merge_cmd_4_5/exp_24_run_$i.log"
+    
+    # python scripts/start_launch.py 25
+    # sleep 10
+    # pkill -9 python
+    # mv /home/zichaohu/catkin_ws/src/SocialNavigation/third_party/graph_navigation/log.log "/home/zichaohu/catkin_ws/src/SocialNavigation/third_party/graph_navigation/result/merge_cmd_4_5/exp_25_run_$i.log"
+
     python scripts/start_launch.py 18
     sleep 10
     pkill -9 python
-    mv /home/zichaohu/catkin_ws/src/SocialNavigation/third_party/graph_navigation/log.log "/home/zichaohu/catkin_ws/src/SocialNavigation/third_party/graph_navigation/result/cross_cmd_4_5/exp_18_run_$i.log"
-    
+    mv /home/zichaohu/catkin_ws/src/SocialNavigation/third_party/graph_navigation/log.log "/home/zichaohu/catkin_ws/src/SocialNavigation/third_party/graph_navigation/result/merge_cmd_4_5/exp_18_run_$i.log"
+
     python scripts/start_launch.py 15
     sleep 10
     pkill -9 python
-    mv /home/zichaohu/catkin_ws/src/SocialNavigation/third_party/graph_navigation/log.log "/home/zichaohu/catkin_ws/src/SocialNavigation/third_party/graph_navigation/result/cross_cmd_4_5/exp_15_run_$i.log"
+    mv /home/zichaohu/catkin_ws/src/SocialNavigation/third_party/graph_navigation/log.log "/home/zichaohu/catkin_ws/src/SocialNavigation/third_party/graph_navigation/result/merge_cmd_4_5/exp_15_run_$i.log"
 
     python scripts/start_launch.py 17
     sleep 10
     pkill -9 python
-    mv /home/zichaohu/catkin_ws/src/SocialNavigation/third_party/graph_navigation/log.log "/home/zichaohu/catkin_ws/src/SocialNavigation/third_party/graph_navigation/result/cross_cmd_4_5/exp_17_run_$i.log"
+    mv /home/zichaohu/catkin_ws/src/SocialNavigation/third_party/graph_navigation/log.log "/home/zichaohu/catkin_ws/src/SocialNavigation/third_party/graph_navigation/result/merge_cmd_4_5/exp_17_run_$i.log"
 done
 
 # for i in {0..10}
