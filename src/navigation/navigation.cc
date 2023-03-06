@@ -597,9 +597,9 @@ void Navigation::RunObstacleAvoidance(Vector2f& vel_cmd, float& ang_vel_cmd) {
 
   
   // ###################### my stuff ######################
-  if(counter % 10 == 0){
+  if(counter % 3 == 0){
     counter = 0;
-    bool not_ok_status= bc_ds_->Run(local_target); 
+    bool not_ok_status= bc_ds_->Run(); 
     if(not_ok_status){
       cout << "my stop" << endl;
       vel_cmd = {0,0};
@@ -610,24 +610,24 @@ void Navigation::RunObstacleAvoidance(Vector2f& vel_cmd, float& ang_vel_cmd) {
   }
   counter++;
 
-  // float local_tar_dist = sqrt(pow(local_target[0], 2) + pow(local_target[1], 2));
-  // if(local_tar_dist > 2.2){
-  //   // get the path
-  //   auto adjusted_goal = bc_ds_->get_bc_target();
-  //   if (adjusted_goal[0] > 9){
-  //     cout << "halt no adjusted goal" << endl;
-  //     Halt(vel_cmd, ang_vel_cmd);
-  //     return;
-  //   }else{
-  //   }
-  //   local_target = adjusted_goal;
-  // }
   float local_tar_dist = sqrt(pow(local_target[0], 2) + pow(local_target[1], 2));
   if(local_tar_dist > 2.2){
-    bc_ds_->get_vel(vel_cmd, ang_vel_cmd);
-    // vel_cmd = {1,0};
-    return;
+    // get the path
+    auto adjusted_goal = bc_ds_->get_bc_target();
+    if (adjusted_goal[0] > 9){
+      cout << "halt no adjusted goal" << endl;
+      Halt(vel_cmd, ang_vel_cmd);
+      return;
+    }else{
+    }
+    local_target = adjusted_goal;
   }
+  // float local_tar_dist = sqrt(pow(local_target[0], 2) + pow(local_target[1], 2));
+  // if(local_tar_dist > 2.2){
+  //   bc_ds_->get_vel(vel_cmd, ang_vel_cmd);
+  //   // vel_cmd = {1,0};
+  //   return;
+  // }
   
   // ###################### my stuff ######################
   

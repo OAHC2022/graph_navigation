@@ -3,7 +3,7 @@
   <node pkg="tf2_ros" type="static_transform_publisher" name="map_to_odom" args="0 0 0 0 0 0 map odom"/>
   <node pkg="tf2_ros" type="static_transform_publisher" name="baselink_to_base_laser" args="0 0 0 0 0 0 base_footprint base_link"/>
   <node pkg="ut_multirobot_sim" type="run.sh" name="ut_multi_sim" output="screen"/>
-  <node pkg="graph_navigation" type="model_cmd.py" name="bc_model" output="screen" args="$(arg exp_num)"/>
+  <node pkg="graph_navigation" type="model_costmap.py" name="bc_model" output="screen" args="$(arg exp_num)"/>
   <node pkg="graph_navigation" type="run.sh" name="graphnav" output="screen" />
   <node pkg="graph_navigation" type="run_profiler.sh" name="profile" output="screen" />
   <!-- <node pkg="graph_navigation" type="navigation" name="graphnav" output="screen" launch-prefix="gdb -ex run args"/> -->

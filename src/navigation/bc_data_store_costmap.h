@@ -17,6 +17,7 @@
 #include <std_msgs/Float32MultiArray.h>
 #include <nav_msgs/Path.h>
 #include <visualization_msgs/Marker.h>
+#include "amrl_msgs/Localization2DMsg.h"
 
 
 using namespace std;
@@ -160,6 +161,7 @@ class DataStore{
             path_pub_ = nh.advertise<nav_msgs::Path>("/predicted_path", 1);
             adjusted_local_goal_pub_ = nh.advertise<visualization_msgs::Marker>("adjusted_local_goal", 1);
             profiler_stop_pub_ = nh.advertise<std_msgs::Float32MultiArray>("/profiler/stop", 1);
+            sub_global_goal_ = nh.subscribe("/move_base_simple/goal_amrl", 10, &DataStore::get_global_goal, this);
         }
         
         vector<TimedPCL> past_point_clouds_;
@@ -184,29 +186,87 @@ class DataStore{
         vector<pair<float, float>> path_;
         Eigen::Vector3f robot_pos_;
 
+        Vector2f global_goal_;
+
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
-        bool Run(Eigen::Vector2f goal){
+        bool Run(){
             auto success = create_odom_lidar_pair();
             if(!success){
                 cout << "create odom lidar pair unsuccessful" << endl;
                 return false;
             }
-            construct_input(goal);
+            construct_input();
             publish_input();
             return collision_checking();
         }
 
         bool collision_checking(){
+            return false;
+            auto curr_odom = past_odoms_.back().data;
+            auto curr_observation = lidar_scans_.back();
+
+            // convert odom to map
+            auto mat_map = build_transform_matrix({0,0,0}, curr_odom);
+            Eigen::Vector3f observed_state_map(0, 0, 1);
+            Eigen::Vector3f rotated_state_map = mat_map * observed_state_map;
+            auto loc_x = rotated_state_map[0];
+            auto loc_y = rotated_state_map[1];
+
+            double min_dist = 100;
+            int curr_idx = 0;
+            int cnt = 0;
+            for(auto p : path_){
+                auto dist = pow(p.first - loc_x,2) + pow(p.second - loc_y,2);
+                if(min_dist > dist){
+                    min_dist = dist;
+                    curr_idx = cnt;
+                }
+                cnt += 1;
+            }
+            
+            for(int i = 0; i < 30; i ++){
+                int lookahead_num = curr_idx + i;
+                if(path_.size() < lookahead_num + 1){
+                    lookahead_num = 5;
+                    if(path_.size() < lookahead_num + 1){
+                        return false;
+                    }
+                }
+
+                auto mat = build_transform_matrix(curr_odom, {0,0,0});
+
+                float x = path_[lookahead_num].first;
+                float y = path_[lookahead_num].second;
+                Eigen::Vector3f observed_state(x, y, 1);
+                Eigen::Vector3f rotated_state = mat * observed_state;
+
+                float x_r = rotated_state[0];
+                float y_r = rotated_state[1];
+
+                for(int x = x_r ; x < 138; x ++){
+                for(int y = 118; y < 138; y++){
+                    if(curr_observation(y,x) != 0){
+                        cout << curr_observation(y,x) << " " << x << " " << y << endl;
+                        return false;
+                    }
+                }
+            }
+                if(curr_observation(y_r,x_r) != 0){
+
+                }
+
+            }
+
             auto angle = get_bc_target_dir(path_);
             // get collisionb checking wrt angle
-            auto curr_observation = lidar_scans_.back();
+           
             
             for(int x = 128; x < 138; x ++){
                 for(int y = 118; y < 138; y++){
                     if(curr_observation(y,x) != 0){
                         cout << curr_observation(y,x) << " " << x << " " << y << endl;
-                        return true;
+                        return false;
                     }
                 }
             }
@@ -381,13 +441,26 @@ class DataStore{
             return true;
         }
 
-        void construct_input(Eigen::Vector2f goal){
+        void construct_input(){
+            // get global goal
+            auto curr_odom = past_odoms_.back().data;
+            auto x = curr_odom[0];
+            auto y = curr_odom[1];
+            auto angle = curr_odom[2];
+            auto theta = atan2(global_goal_[1] - y, global_goal_[0] - x);
+            auto dist = sqrt(pow(global_goal_[1] - y, 2) + pow(global_goal_[0] - x, 2));
+            auto curr_angle = theta - angle;
+            
             // create goal map 
             Eigen::MatrixXf goal_map = Eigen::MatrixXf::Zero(img_size_, img_size_);
             float x_r, y_r;
-
-            x_r = goal[0];
-            y_r = goal[1];
+            if(dist > 6){
+                x_r = cos(curr_angle) * 6;
+                y_r = sin(curr_angle) * 6;
+            }else{
+                x_r = cos(curr_angle) * dist;
+                y_r = sin(curr_angle) * dist;
+            }
 
             float ix = (float)(dx_ + int(x_r / resolution_));
             float iy = (float)(dy_ - int(y_r / resolution_));
@@ -517,9 +590,9 @@ class DataStore{
                 cnt += 1;
             }
 
-            int lookahead_num = curr_idx + 40;
+            int lookahead_num = curr_idx + 5;
             if(path_.size() < lookahead_num + 1){
-                lookahead_num = 40;
+                lookahead_num = 5;
                 if(path_.size() < lookahead_num + 1){
                     return adjusted_goal;
                 }
@@ -643,6 +716,11 @@ class DataStore{
 
             return img;
         }
+
+        void get_global_goal(const amrl_msgs::Localization2DMsg& msg){
+            const Vector2f loc(msg.pose.x, msg.pose.y);
+            global_goal_ = loc;
+        }
         void update_vel(){
         }
     private:
@@ -651,6 +729,7 @@ class DataStore{
         ros::Publisher path_pub_;
         ros::Publisher adjusted_local_goal_pub_;
         ros::Publisher profiler_stop_pub_;
+        ros::Subscriber sub_global_goal_;
 
         pair<float,float> convert_from_goal_idx_to_coord(pair<int,int> pt){
             float x = ((float)(pt.first - dx_)) * resolution_;

@@ -10,7 +10,7 @@ from amrl_msgs.msg import Localization2DMsg
 import time
 import numpy as np
 
-goals = [[0,0,0], [10,0, np.pi]]
+goals = [[0,0,0], [10,2, np.pi]]
 curr_idx = 0
 
 delay = 400
