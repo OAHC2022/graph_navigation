@@ -104,6 +104,7 @@ static vector<pair<int, int>> aStar(vector<vector<float>>& costMap, int startX, 
                     backtrack[ny][nx] = curr.x + curr.y * m;
                 }
                 if(nx == endX && ny == endY){
+                    // should not break, there might be a faster route?
                     arrived = true;
                     break;
                 }
@@ -117,6 +118,7 @@ static vector<pair<int, int>> aStar(vector<vector<float>>& costMap, int startX, 
             int max_count = 2000;
             while ((x != startX || y != startY) && (count < max_count)) {
                 // this could stuck in a loop: not sure why, prob bug in astar
+                // cout << "x,y: " << x << " " << y << endl;
                 path.emplace_back(x, y);
                 int idx = backtrack[y][x];
                 x = idx % m;
@@ -162,6 +164,7 @@ class DataStore{
             adjusted_local_goal_pub_ = nh.advertise<visualization_msgs::Marker>("adjusted_local_goal", 1);
             profiler_stop_pub_ = nh.advertise<std_msgs::Float32MultiArray>("/profiler/stop", 1);
             sub_global_goal_ = nh.subscribe("/move_base_simple/goal_amrl", 10, &DataStore::get_global_goal, this);
+            negative_sample_path_pub_ = nh.advertise<std_msgs::Float32MultiArray>("/bc_data_store/path", 1);
         }
         
         vector<TimedPCL> past_point_clouds_;
@@ -202,7 +205,6 @@ class DataStore{
         }
 
         bool collision_checking(){
-            return false;
             auto curr_odom = past_odoms_.back().data;
             auto curr_observation = lidar_scans_.back();
 
@@ -225,13 +227,10 @@ class DataStore{
                 cnt += 1;
             }
             
-            for(int i = 0; i < 30; i ++){
+            for(int i = 5; i < 30; i ++){
                 int lookahead_num = curr_idx + i;
                 if(path_.size() < lookahead_num + 1){
-                    lookahead_num = 5;
-                    if(path_.size() < lookahead_num + 1){
-                        return false;
-                    }
+                    return false;
                 }
 
                 auto mat = build_transform_matrix(curr_odom, {0,0,0});
@@ -243,30 +242,18 @@ class DataStore{
 
                 float x_r = rotated_state[0];
                 float y_r = rotated_state[1];
+                int ix = (dx_ + int(x_r / resolution_));
+                int iy = (dy_ - int(y_r / resolution_));
 
-                for(int x = x_r ; x < 138; x ++){
-                for(int y = 118; y < 138; y++){
-                    if(curr_observation(y,x) != 0){
-                        cout << curr_observation(y,x) << " " << x << " " << y << endl;
-                        return false;
-                    }
-                }
-            }
-                if(curr_observation(y_r,x_r) != 0){
-
-                }
-
-            }
-
-            auto angle = get_bc_target_dir(path_);
-            // get collisionb checking wrt angle
-           
-            
-            for(int x = 128; x < 138; x ++){
-                for(int y = 118; y < 138; y++){
-                    if(curr_observation(y,x) != 0){
-                        cout << curr_observation(y,x) << " " << x << " " << y << endl;
-                        return false;
+                for(int x = ix-3 ; x < ix+3; x ++){
+                    for(int y = iy-3; y < iy+3; y++){
+                        if(ix < 0 || ix >= 256 || iy < 0 || iy > 256){
+                            continue;
+                        }
+                        if(curr_observation(y,x) != 0){
+                            cout << curr_observation(y,x) << " " << x << " " << y << endl;
+                            return true;
+                        }
                     }
                 }
             }
@@ -302,10 +289,13 @@ class DataStore{
             // convert to map frame
             auto mat = build_transform_matrix({0,0,0}, {odom_x, odom_y, odom_theta});
 
+            std_msgs::Float32MultiArray negative_path_msg;
             nav_msgs::Path path_msg;
             path_msg.header.frame_id = "odom";
             path_msg.header.stamp = ros::Time::now();
             for(auto p : path){
+                negative_path_msg.data.push_back(p.first);
+                negative_path_msg.data.push_back(p.second);
                 float x = ((float)(p.first - dx_)) * resolution_;
                 float y = ((float)(dy_ - p.second)) * resolution_;
 
@@ -333,6 +323,7 @@ class DataStore{
             path_ = tmp_path;
 
             path_pub_.publish(path_msg);
+            negative_sample_path_pub_.publish(negative_path_msg);
         }
         
         void store_point_cloud(vector<Vector2f> point_cloud, double time){
@@ -407,19 +398,19 @@ class DataStore{
             lidar_scans_.clear();
 
             // add image in timestamp seq
-            Eigen::MatrixXf kernel = Eigen::MatrixXf::Ones(11,11);
+            Eigen::MatrixXf kernel = Eigen::MatrixXf::Ones(5,5);
             for(int i = selected_odom.size() - 1; i >= 0; i--){
                 rotate_mat = build_transform_matrix(selected_odom[0].data, selected_odom[i].data);
                 auto tmp_img = get_bev_lidar_img_rotate(selected_pcl[i].data, rotate_mat);
                 
                 // apply kernel:
-                Eigen::MatrixXf padded_mat = Eigen::MatrixXf::Zero(256+10, 256+10);
-                padded_mat.block(5, 5, 256, 256) = tmp_img;
+                Eigen::MatrixXf padded_mat = Eigen::MatrixXf::Zero(256+4, 256+4);
+                padded_mat.block(2, 2, 256, 256) = tmp_img;
 
                 Eigen::MatrixXf result = Eigen::MatrixXf::Zero(256, 256);
-                for (int ik = 5; ik < padded_mat.rows() - 5; ++ik) {
-                    for (int j = 5; j < padded_mat.cols() - 5; ++j) {
-                        result(ik - 5, j - 5) = (padded_mat.block(ik - 5, j - 5, 11, 11) * kernel.transpose()).sum() > 0 ? 1 : 0;
+                for (int ik = 2; ik < padded_mat.rows() - 2; ++ik) {
+                    for (int j = 2; j < padded_mat.cols() - 2; ++j) {
+                        result(ik - 2, j - 2) = (padded_mat.block(ik - 2, j - 2, 5, 5) * kernel.transpose()).sum() > 0 ? 1 : 0;
                     }
                 }
                 
@@ -441,6 +432,44 @@ class DataStore{
             return true;
         }
 
+        Eigen::MatrixXf get_current_observation(){
+            Eigen::MatrixXf kernel = Eigen::MatrixXf::Ones(11,11);
+            auto curr_odom = past_odoms_.back();
+            auto curr_pcl = past_point_clouds_.back();
+            auto rotate_mat = build_transform_matrix(curr_odom.data, curr_odom.data);
+            auto tmp_img = get_bev_lidar_img_rotate(curr_pcl.data, rotate_mat);
+            
+            // apply kernel:
+            Eigen::MatrixXf padded_mat = Eigen::MatrixXf::Zero(256+10, 256+10);
+            padded_mat.block(5, 5, 256, 256) = tmp_img;
+
+            Eigen::MatrixXf result = Eigen::MatrixXf::Zero(256, 256);
+            for (int ik = 5; ik < padded_mat.rows() - 5; ++ik) {
+                for (int j = 5; j < padded_mat.cols() - 5; ++j) {
+                    result(ik - 5, j - 5) = (padded_mat.block(ik - 5, j - 5, 11, 11) * kernel.transpose()).sum() > 0 ? 1 : 0;
+                }
+            }
+                
+            return result;
+        }
+
+        bool check_collision_img(Eigen::MatrixXf img, int x, int y){
+            int radius = 10;
+            int x_lower = x - radius > 0 ? x - 5 : 0;
+            int x_upper = x + radius < 256 ? x + radius : 255;
+            int y_lower = y - radius > 0 ? y - radius : 0;
+            int y_upper = y + radius < 256 ? y + radius : 255;
+
+            for(int i = x_lower; i <= x_upper; i++){
+                for(int j = y_lower; j <= y_upper; j++){
+                    if(img(j,i) != 0){
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         void construct_input(){
             // get global goal
             auto curr_odom = past_odoms_.back().data;
@@ -451,20 +480,37 @@ class DataStore{
             auto dist = sqrt(pow(global_goal_[1] - y, 2) + pow(global_goal_[0] - x, 2));
             auto curr_angle = theta - angle;
             
-            // create goal map 
+            // create goal map (away from the obstacle)
             Eigen::MatrixXf goal_map = Eigen::MatrixXf::Zero(img_size_, img_size_);
-            float x_r, y_r;
+            auto curr_obs = get_current_observation();
+
+            float x_r, y_r, ix, iy;
+            
+
             if(dist > 6){
-                x_r = cos(curr_angle) * 6;
-                y_r = sin(curr_angle) * 6;
+                bool set_goal_flag = false;
+                for(float r = 8; r >= 5; r -= 0.5){
+                    x_r = cos(curr_angle) * r;
+                    y_r = sin(curr_angle) * r;
+                    ix = (float)(dx_ + int(x_r / resolution_));
+                    iy = (float)(dy_ - int(y_r / resolution_));
+                    if(check_collision_img(curr_obs, ix, iy)){
+                        continue;
+                    }
+                    goal_map(iy, ix) = 1;
+                    set_goal_flag = true;
+                    break;
+                }
+                if(!set_goal_flag){
+                    cout << "cannot find a valid carrot!!!" << endl;
+                }
             }else{
                 x_r = cos(curr_angle) * dist;
                 y_r = sin(curr_angle) * dist;
+                ix = (float)(dx_ + int(x_r / resolution_));
+                iy = (float)(dy_ - int(y_r / resolution_));
+                goal_map(iy, ix) = 1;
             }
-
-            float ix = (float)(dx_ + int(x_r / resolution_));
-            float iy = (float)(dy_ - int(y_r / resolution_));
-            goal_map(iy, ix) = 1;
 
             // create input tensor
             input_img_vector_.clear();
@@ -590,9 +636,9 @@ class DataStore{
                 cnt += 1;
             }
 
-            int lookahead_num = curr_idx + 5;
+            int lookahead_num = curr_idx + 25;
             if(path_.size() < lookahead_num + 1){
-                lookahead_num = 5;
+                lookahead_num = 25;
                 if(path_.size() < lookahead_num + 1){
                     return adjusted_goal;
                 }
@@ -729,6 +775,7 @@ class DataStore{
         ros::Publisher path_pub_;
         ros::Publisher adjusted_local_goal_pub_;
         ros::Publisher profiler_stop_pub_;
+        ros::Publisher negative_sample_path_pub_;
         ros::Subscriber sub_global_goal_;
 
         pair<float,float> convert_from_goal_idx_to_coord(pair<int,int> pt){

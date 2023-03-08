@@ -31,9 +31,9 @@ class BCNew_Ported(nn.Module):
         self.tanh = nn.Tanh()
 
     def forward(self, lidar_scans):
-        map_design = lidar_scans[:,-1:] #bug
+        map_design = lidar_scans[:,-2:-1] #bug
         guidance_map = self.global_planner(lidar_scans)
-        cost_map = torch.clamp(map_design + self.tanh(guidance_map), 0, 1) * self.scale 
+        cost_map = torch.clamp(map_design + self.tanh(guidance_map), 0, 1) * self.scale #just use the guidance map
         return cost_map 
 
 def get_checkpoint_name(exp_num, epoch_num):
@@ -44,12 +44,11 @@ def get_checkpoint_name(exp_num, epoch_num):
             fn = f.split('/')
             return fn[-1]
 
-def load_model(exp_num, checkpoint):
+def load_model(exp_num, MODEL_DIR):
     COUNT = exp_num
-    MODEL_DIR = "/robodata/zichaohu/training/BCNew/{}/".format(COUNT)
     model = BCNew_Ported(exp_num=COUNT)
     
-    dict = torch.load(MODEL_DIR + checkpoint, map_location=DEVICE)['state_dict']
+    dict = torch.load(MODEL_DIR, map_location=DEVICE)['state_dict']
     new_dict = {}
     for k,v in dict.items():
         if "vanilla_astar" in k or "diff_astar" in k:
@@ -84,7 +83,7 @@ def callback(data: Float32MultiArray):
     lidar_scans = lidar_scans.view(1,6,256,256)
 
     # apply gaussian blur
-    gb_kernel = torchvision.transforms.GaussianBlur(5, 0.2)
+    gb_kernel = torchvision.transforms.GaussianBlur(5, 1.1)
     lidar_scans = gb_kernel(lidar_scans)
 
     cost_map = model(lidar_scans)
@@ -105,7 +104,9 @@ def callback(data: Float32MultiArray):
 
     pub.publish(cost_map_msg)
     end_time = time.time()
-    # with open("/home/zichaohu/catkin_ws/src/SocialNavigation/third_party/graph_navigation/sim_vis/pkl/sim_{}.pkl".format(count), "wb") as f:
+    dir = "/home/zichaohu/catkin_ws/src/SocialNavigation/third_party/graph_navigation/sim_vis/pkl/"
+    create_dir_if_not_exist(dir)
+    # with open(dir + "sim_{}.pkl".format(count), "wb") as f:
     #     pickle.dump([data, cost_map], f)
 
 
@@ -132,9 +133,14 @@ if __name__ == '__main__':
     exp_num = int(sys.argv[1])
     print("Start Model Node for exp: {}".format(exp_num))
     check_point = get_checkpoint_name(exp_num,60)
-    check_point = "pred-epoch=70-val_loss=0.00386.ckpt"
-    # check_point = "pred-epoch=49-val_loss=0.00500.ckpt"
-    model = load_model(exp_num,check_point)
+    # check_point = "pred-epoch=70-val_loss=0.00386.ckpt"
+    # check_point = "pred-epoch=90-val_loss=0.00410.ckpt" # exp 7
+    # check_point = "ahg_pred-epoch=99-val_loss=0.00278.ckpt" # ahg exp 4
+    MODEL_DIR = "/robodata/zichaohu/training/BCNew/{}/ahg/".format(exp_num)
+    # MODEL_DIR = "/robodata/zichaohu/training/BCNew/{}/".format(exp_num)
+    check_point = "ahg_pred-epoch=170-val_loss=0.00113.ckpt" # ahg exp 7
+    # check_point = "pred-epoch=111-val_loss=0.00442.ckpt" # exp 6
+    model = load_model(exp_num,MODEL_DIR+check_point)
     preheat_model()
     rospy.init_node('model_node', anonymous=True)
     rospy.Subscriber("/bc_data_store/input_img", Float32MultiArray, callback)

@@ -52,3 +52,4 @@ shared/
 *.onnx
 
 *.log
+*.pkl

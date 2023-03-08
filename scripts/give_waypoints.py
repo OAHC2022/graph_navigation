@@ -10,7 +10,7 @@ from amrl_msgs.msg import Localization2DMsg
 import time
 import numpy as np
 
-goals = [[0,0,0], [10,2, np.pi]]
+goals = [[0,0,0], [10,0, np.pi]]
 curr_idx = 0
 
 delay = 400
@@ -49,7 +49,7 @@ def odom_cb(odom: Odometry):
 
 if __name__ == "__main__":
     print("starting give way point node")
-    time.sleep(15)
+    time.sleep(10)
     print('finish sleeping')
     # Create a Lua runtime
     lua = lupa.LuaRuntime()

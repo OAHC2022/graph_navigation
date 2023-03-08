@@ -597,31 +597,31 @@ void Navigation::RunObstacleAvoidance(Vector2f& vel_cmd, float& ang_vel_cmd) {
 
   
   // ###################### my stuff ######################
-  if(counter % 3 == 0){
-    counter = 0;
-    bool not_ok_status= bc_ds_->Run(); 
-    if(not_ok_status){
-      cout << "my stop" << endl;
-      vel_cmd = {0,0};
-      ang_vel_cmd = 0;
-      bc_ds_->update_vel();
-      return;
-    }
-  }
-  counter++;
+  // if(counter % 7 == 0){
+  //   counter = 0;
+  //   bool not_ok_status= bc_ds_->Run(); 
+  //   if(not_ok_status){
+  //     cout << "my stop" << endl;
+  //     vel_cmd = {0,0};
+  //     ang_vel_cmd = 0;
+  //     bc_ds_->update_vel();
+  //     return;
+  //   }
+  // }
+  // counter++;
 
-  float local_tar_dist = sqrt(pow(local_target[0], 2) + pow(local_target[1], 2));
-  if(local_tar_dist > 2.2){
-    // get the path
-    auto adjusted_goal = bc_ds_->get_bc_target();
-    if (adjusted_goal[0] > 9){
-      cout << "halt no adjusted goal" << endl;
-      Halt(vel_cmd, ang_vel_cmd);
-      return;
-    }else{
-    }
-    local_target = adjusted_goal;
-  }
+  // float local_tar_dist = sqrt(pow(local_target[0], 2) + pow(local_target[1], 2));
+  // if(local_tar_dist > 2.2){
+  //   // get the path
+  //   auto adjusted_goal = bc_ds_->get_bc_target();
+  //   if (adjusted_goal[0] > 9){
+  //     cout << "halt no adjusted goal" << endl;
+  //     Halt(vel_cmd, ang_vel_cmd);
+  //     return;
+  //   }else{
+  //   }
+  //   local_target = adjusted_goal;
+  // }
   // float local_tar_dist = sqrt(pow(local_target[0], 2) + pow(local_target[1], 2));
   // if(local_tar_dist > 2.2){
   //   bc_ds_->get_vel(vel_cmd, ang_vel_cmd);
@@ -706,7 +706,6 @@ void Navigation::TurnInPlace(Vector2f& cmd_vel, float& cmd_angle_vel) {
   const float velocity = robot_vel_.x();
   cmd_angle_vel = 0;
   if (fabs(velocity) > kMaxLinearSpeed) {
-    // cout << "turn halt " << kMaxLinearSpeed << " " << fabs(velocity) << " " << velocity <<  endl;
     Halt(cmd_vel, cmd_angle_vel);
     return;
   }
@@ -872,6 +871,7 @@ bool Navigation::Run(const double& time,
                      Vector2f& cmd_vel,
                      float& cmd_angle_vel) {
   const bool kDebug = FLAGS_v > 0;
+  // const bool kDebug = true;
   if (!initialized_) {
     if (kDebug) printf("Parameters and maps not initialized\n");
     return false;
@@ -912,12 +912,47 @@ bool Navigation::Run(const double& time,
       Vector2f carrot(0, 0);
       bool foundCarrot = GetCarrot(carrot);
       if (!foundCarrot) {
-        // cout << "carrot halt " << endl;
         Halt(cmd_vel, cmd_angle_vel);
         return false;
       }
+
       // Local Navigation
       local_target_ = Rotation2Df(-robot_angle_) * (carrot - robot_loc_);
+
+      ////////// use my local target here ////////////////////
+      if(counter % 10 == 0){
+        counter = 0;
+        bool not_ok_status= bc_ds_->Run(); 
+        if(not_ok_status){
+          cout << "my stop" << endl;
+          bc_ds_->update_vel();
+          Halt(cmd_vel, cmd_angle_vel);
+          return false;
+        }
+      }
+      counter++;
+
+      float local_tar_dist = sqrt(pow(local_target_[0], 2) + pow(local_target_[1], 2));
+      if(local_tar_dist > 2.2){
+        // get the path
+        auto adjusted_goal = bc_ds_->get_bc_target();
+        if (adjusted_goal[0] > 9){
+          cout << "halt no adjusted goal" << endl;
+          Halt(cmd_vel, cmd_angle_vel);
+          return false;
+        }else{
+        }
+        local_target_ = adjusted_goal;
+      }
+      // float local_tar_dist = sqrt(pow(local_target[0], 2) + pow(local_target[1], 2));
+      // if(local_tar_dist > 2.2){
+      //   bc_ds_->get_vel(vel_cmd, ang_vel_cmd);
+      //   // vel_cmd = {1,0};
+      //   return;
+      // }
+  
+      ////////////////////////////////////////////////////////
+
     }
   }
 
@@ -927,7 +962,7 @@ bool Navigation::Run(const double& time,
     prev_state = nav_state_;
     if (nav_state_ == NavigationState::kGoto &&
         local_target_.squaredNorm() < Sq(params_.target_dist_tolerance) &&
-        robot_vel_.squaredNorm() < Sq(params_.target_dist_tolerance)) {
+        robot_vel_.squaredNorm() < Sq(params_.target_vel_tolerance)) {
       nav_state_ = NavigationState::kTurnInPlace;
     } else if (nav_state_ == NavigationState::kTurnInPlace &&
           AngleDist(robot_angle_, nav_goal_angle_) < 
@@ -961,7 +996,6 @@ bool Navigation::Run(const double& time,
 
   if (nav_state_ == NavigationState::kPaused ||
       nav_state_ == NavigationState::kStopped) {
-        // cout << "stop halt" << endl;
     Halt(cmd_vel, cmd_angle_vel);
     return true;
   } else if (nav_state_ == NavigationState::kGoto ||

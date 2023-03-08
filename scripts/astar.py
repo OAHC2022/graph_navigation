@@ -1,5 +1,5 @@
 import numpy as np
-import pqdict
+from pqdict import pqdict
 
 def get_neighbor_indices(idx: int, H: int, W: int) -> np.array:
     """Get neighbor indices"""
