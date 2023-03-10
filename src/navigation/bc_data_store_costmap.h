@@ -205,6 +205,7 @@ class DataStore{
         }
 
         bool collision_checking(){
+            return false;
             auto curr_odom = past_odoms_.back().data;
             auto curr_observation = lidar_scans_.back();
 
@@ -768,6 +769,8 @@ class DataStore{
             global_goal_ = loc;
         }
         void update_vel(){
+        }
+        void get_vel(Vector2f& vel_cmd, float& ang_vel_cmd){
         }
     private:
         ros::Subscriber sub_;

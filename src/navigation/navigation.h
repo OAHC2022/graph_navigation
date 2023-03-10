@@ -148,7 +148,8 @@ class Navigation {
 
   // ###################### my stuff ######################
   std::unique_ptr<DataStore> bc_ds_;
-  int counter = 0;
+  int social_nav_counter = 0;
+  // ###################### my stuff ######################
  private:
 
   // Test 1D TOC motion in a straight line.
@@ -187,6 +188,10 @@ class Navigation {
   void DrawRobot();
   // Publish a status message
   void PublishNavStatus(const Eigen::Vector2f& carrot);
+
+  ///////////// my custom handler ///////////////
+  bool SocialNavHandler(Eigen::Vector2f& cmd_vel, float& cmd_angle_vel, Eigen::Vector2f& local_target);
+  ///////////// my custom handler ///////////////
 
   // Current robot location.
   Eigen::Vector2f robot_loc_;

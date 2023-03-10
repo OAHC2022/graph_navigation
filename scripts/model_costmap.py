@@ -44,11 +44,11 @@ def get_checkpoint_name(exp_num, epoch_num):
             fn = f.split('/')
             return fn[-1]
 
-def load_model(exp_num, MODEL_DIR):
+def load_model(exp_num, model_dir):
     COUNT = exp_num
     model = BCNew_Ported(exp_num=COUNT)
     
-    dict = torch.load(MODEL_DIR, map_location=DEVICE)['state_dict']
+    dict = torch.load(model_dir, map_location=DEVICE)['state_dict']
     new_dict = {}
     for k,v in dict.items():
         if "vanilla_astar" in k or "diff_astar" in k:

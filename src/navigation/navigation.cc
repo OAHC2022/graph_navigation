@@ -589,6 +589,45 @@ Vector2f GetFinalPoint(const PathOption& o) {
 DEFINE_double(tx, 0.4, "Test obstacle point - X");
 DEFINE_double(ty, -0.38, "Test obstacle point - Y");
 
+bool Navigation::SocialNavHandler(Eigen::Vector2f& cmd_vel, float& cmd_angle_vel, Eigen::Vector2f& local_target){
+  bool use_vel = false;
+  // takes in the local target, the commend vel to accomodate different models
+  if(social_nav_counter % 7 == 0){
+    social_nav_counter = 0;
+    bool not_ok_status = bc_ds_->Run(); 
+    if(not_ok_status){
+      cout << "my stop" << endl;
+      cmd_vel = {0,0};
+      cmd_angle_vel = 0;
+      bc_ds_->update_vel();
+      return true;
+    }
+  }
+  social_nav_counter++;
+
+  if(!use_vel){
+    float local_tar_dist = sqrt(pow(local_target[0], 2) + pow(local_target[1], 2));
+      if(local_tar_dist > 2.2){
+        // get the path
+        auto adjusted_goal = bc_ds_->get_bc_target();
+        if (adjusted_goal[0] > 9){
+          cout << "halt no adjusted goal" << endl;
+          Halt(cmd_vel, cmd_angle_vel);
+          return false;
+        }else{
+        }
+        local_target = adjusted_goal;
+    }
+  }else{
+    float local_tar_dist = sqrt(pow(local_target[0], 2) + pow(local_target[1], 2));
+    if(local_tar_dist > 2.2){
+      bc_ds_->get_vel(cmd_vel, cmd_angle_vel);
+      return true;
+    }
+  }
+  return false;
+}
+
 void Navigation::RunObstacleAvoidance(Vector2f& vel_cmd, float& ang_vel_cmd) {
   static CumulativeFunctionTimer function_timer_(__FUNCTION__);
   CumulativeFunctionTimer::Invocation invoke(&function_timer_);
@@ -597,38 +636,10 @@ void Navigation::RunObstacleAvoidance(Vector2f& vel_cmd, float& ang_vel_cmd) {
 
   
   // ###################### my stuff ######################
-  // if(counter % 7 == 0){
-  //   counter = 0;
-  //   bool not_ok_status= bc_ds_->Run(); 
-  //   if(not_ok_status){
-  //     cout << "my stop" << endl;
-  //     vel_cmd = {0,0};
-  //     ang_vel_cmd = 0;
-  //     bc_ds_->update_vel();
-  //     return;
-  //   }
-  // }
-  // counter++;
-
-  // float local_tar_dist = sqrt(pow(local_target[0], 2) + pow(local_target[1], 2));
-  // if(local_tar_dist > 2.2){
-  //   // get the path
-  //   auto adjusted_goal = bc_ds_->get_bc_target();
-  //   if (adjusted_goal[0] > 9){
-  //     cout << "halt no adjusted goal" << endl;
-  //     Halt(vel_cmd, ang_vel_cmd);
-  //     return;
-  //   }else{
-  //   }
-  //   local_target = adjusted_goal;
-  // }
-  // float local_tar_dist = sqrt(pow(local_target[0], 2) + pow(local_target[1], 2));
-  // if(local_tar_dist > 2.2){
-  //   bc_ds_->get_vel(vel_cmd, ang_vel_cmd);
-  //   // vel_cmd = {1,0};
-  //   return;
-  // }
-  
+  bool return_status = SocialNavHandler(vel_cmd, ang_vel_cmd, local_target);
+  if(return_status){
+    return;
+  }
   // ###################### my stuff ######################
   
   // Handling potential carrot overrides from social nav
@@ -918,41 +929,6 @@ bool Navigation::Run(const double& time,
 
       // Local Navigation
       local_target_ = Rotation2Df(-robot_angle_) * (carrot - robot_loc_);
-
-      ////////// use my local target here ////////////////////
-      if(counter % 10 == 0){
-        counter = 0;
-        bool not_ok_status= bc_ds_->Run(); 
-        if(not_ok_status){
-          cout << "my stop" << endl;
-          bc_ds_->update_vel();
-          Halt(cmd_vel, cmd_angle_vel);
-          return false;
-        }
-      }
-      counter++;
-
-      float local_tar_dist = sqrt(pow(local_target_[0], 2) + pow(local_target_[1], 2));
-      if(local_tar_dist > 2.2){
-        // get the path
-        auto adjusted_goal = bc_ds_->get_bc_target();
-        if (adjusted_goal[0] > 9){
-          cout << "halt no adjusted goal" << endl;
-          Halt(cmd_vel, cmd_angle_vel);
-          return false;
-        }else{
-        }
-        local_target_ = adjusted_goal;
-      }
-      // float local_tar_dist = sqrt(pow(local_target[0], 2) + pow(local_target[1], 2));
-      // if(local_tar_dist > 2.2){
-      //   bc_ds_->get_vel(vel_cmd, ang_vel_cmd);
-      //   // vel_cmd = {1,0};
-      //   return;
-      // }
-  
-      ////////////////////////////////////////////////////////
-
     }
   }
 
